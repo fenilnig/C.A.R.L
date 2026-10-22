@@ -1,0 +1,16 @@
+[Unit]
+Description=C.A.R.L. phone controller
+After=network.target arduino-router.service
+Wants=arduino-router.service
+
+[Service]
+WorkingDirectory=/home/arduino/carl
+ExecStart=/usr/bin/python3 /home/arduino/carl/server.py
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+# bench with no ToF sensor plugged in: uncomment, and remove before driving on the floor
+#Environment=CARL_NO_TOF=1
+
+[Install]
+WantedBy=multi-user.target

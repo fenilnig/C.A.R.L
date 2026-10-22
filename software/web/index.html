@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>C.A.R.L. Controller</title>
+<link rel="manifest" href="/manifest.json"><link rel="icon" href="/icon.svg"><link rel="apple-touch-icon" href="/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="CARL">
+<meta name="theme-color" content="#10151a">
+<style>
+:root{--bg:#10151a;--fg:#e8eef2;--mut:#7c8b96;--ok:#3ddc97;--bad:#ff5d5d;--acc:#4cc2ff}
+*{box-sizing:border-box;touch-action:none;user-select:none}
+body{margin:0;overscroll-behavior:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:var(--bg);color:var(--fg);font:15px system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column}
+header{display:flex;justify-content:space-between;padding:10px 14px;gap:8px;flex-wrap:wrap}
+.pill{padding:4px 10px;border-radius:99px;background:#1c252d;color:var(--mut)}
+.pill.ok{color:var(--ok)}.pill.bad{color:var(--bad)}
+main{flex:1;display:flex;justify-content:space-around;align-items:center;padding:0 10px}
+.pad{width:42vw;max-width:260px;aspect-ratio:1;border-radius:50%;background:#1a232b;position:relative;border:2px solid #26333d}
+.pad.v{border-radius:40px;width:22vw;max-width:130px;aspect-ratio:1/2}
+.pad.g{width:30vw;max-width:200px}
+.pad.g .knob{width:52px;height:52px;background:#ffb84c}
+#ctr{margin-top:34px;padding:8px 14px;border:0;border-radius:99px;background:#26333d;color:var(--fg);font-size:13px}
+.knob{position:absolute;width:64px;height:64px;border-radius:50%;background:var(--acc);left:50%;top:50%;transform:translate(-50%,-50%)}
+.lbl{position:absolute;bottom:-26px;width:100%;text-align:center;color:var(--mut);font-size:13px}
+#estop{margin:12px 14px 18px;padding:18px;border:0;border-radius:14px;background:var(--bad);color:#fff;font-size:20px;font-weight:700}
+#estop.on{background:#444}
+</style></head><body>
+<header><span class="pill" id="link">no link</span><span class="pill" id="mcu">MCU --</span><span class="pill" id="spd">0.00 m/s</span><span class="pill" id="tof">ToF --</span><span class="pill" id="bat">-- V</span><span class="pill" id="cam">cam 0/0</span></header>
+<main>
+ <div class="pad v" id="thr"><div class="knob" id="k1"></div><div class="lbl">SPEED</div></div>
+ <div style="display:flex;flex-direction:column;align-items:center"><div class="pad g" id="gim"><div class="knob" id="k3"></div><div class="lbl">CAMERA</div></div><button id="ctr">Centre camera</button></div>
+ <div class="pad" id="str"><div class="knob" id="k2"></div><div class="lbl">STEER</div></div>
+</main>
+<button id="estop">EMERGENCY STOP</button>
+<div id="rot" style="display:none;position:fixed;inset:0;background:#10151a;z-index:9;align-items:center;justify-content:center;text-align:center;font-size:20px;color:#e8eef2">Rotate your phone sideways</div>
+<script>
+let wl=null;async function keepAwake(){try{wl=await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('pointerdown',keepAwake,{once:true});
+function chk(){document.getElementById('rot').style.display=innerHeight>innerWidth?'flex':'none'}
+addEventListener('resize',chk);chk();
+try{screen.orientation.lock('landscape').catch(()=>{})}catch(e){}
+let t=0,s=0,p=0,l=0,center=false,estop=false,ok=false;
+function stick(el,knob,axis,cb){
+ let on=false;const r=()=>el.getBoundingClientRect();
+ function mv(e){const b=r();let x=(e.clientX-b.left)/b.width*2-1,y=(e.clientY-b.top)/b.height*2-1;
+  x=Math.max(-1,Math.min(1,x));y=Math.max(-1,Math.min(1,y));
+  const v=axis==='y'?-y:x;knob.style.left=(axis==='y'?50:50+x*40)+'%';knob.style.top=(axis==='y'?50+y*40:50)+'%';cb(v)}
+ el.addEventListener('pointerdown',e=>{on=true;el.setPointerCapture(e.pointerId);mv(e)});
+ el.addEventListener('pointermove',e=>{if(on)mv(e)});
+ const up=()=>{on=false;knob.style.left='50%';knob.style.top='50%';cb(0)};
+ el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+}
+stick(document.getElementById('thr'),k1,'y',v=>t=v);
+stick(document.getElementById('str'),k2,'x',v=>s=v);
+// camera stick: both axes, x = pan (right +), y = tilt (up +); the server turns it into a slow angle rate
+(function(){const el=document.getElementById('gim'),k=k3;let on=false;
+ function mv(e){const b=el.getBoundingClientRect();let x=(e.clientX-b.left)/b.width*2-1,y=(e.clientY-b.top)/b.height*2-1;
+  x=Math.max(-1,Math.min(1,x));y=Math.max(-1,Math.min(1,y));k.style.left=50+x*40+'%';k.style.top=50+y*40+'%';p=x;l=-y}
+ el.addEventListener('pointerdown',e=>{on=true;el.setPointerCapture(e.pointerId);mv(e)});
+ el.addEventListener('pointermove',e=>{if(on)mv(e)});
+ const up=()=>{on=false;k.style.left='50%';k.style.top='50%';p=0;l=0};
+ el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up)})();
+document.getElementById('ctr').onclick=()=>{center=true};
+document.getElementById('estop').onclick=()=>{estop=!estop;try{navigator.vibrate(estop?[80,40,80]:30)}catch(e){};const b=document.getElementById('estop');b.classList.toggle('on',estop);b.textContent=estop?'STOPPED - tap to release':'EMERGENCY STOP'};
+function pill(id,txt,cls){const e=document.getElementById(id);e.textContent=txt;e.className='pill '+(cls||'')}
+async function tick(){
+ try{const c=new AbortController();setTimeout(()=>c.abort(),200);
+  const send=center;center=false;
+  const r=await fetch('/ctl',{method:'POST',body:JSON.stringify({t,s,estop,p,l,center:send}),signal:c.signal});
+  const d=await r.json();ok=true;pill('link','linked','ok');
+  pill('mcu',d.error?'ERROR':d.link?'MCU ok':'MCU down',d.error||!d.link?'bad':'ok');
+  pill('cam','cam '+d.pan.toFixed(0)+'/'+d.tilt.toFixed(0));
+  pill('spd',d.speed.toFixed(2)+' m/s');
+  pill('tof',d.tof==null?'ToF --':'ToF '+(d.tof*100).toFixed(0)+' cm',d.tof!=null&&d.tof<.3?'bad':'');
+  pill('bat',d.batt==null?'-- V':d.batt.toFixed(1)+' V',d.low?'bad':'');
+ }catch(e){ok=false;pill('link','link lost','bad');t=0}
+}
+setInterval(tick,100);
+document.addEventListener('visibilitychange',()=>{t=0;s=0;p=0;l=0});
+</script></body></html>

@@ -1,0 +1,345 @@
+<title>Ground Dolly Blueprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: drawing-sheet. Title block, 3D viewer + parts schedule, stats strip, four orthographic views. */
+:root{
+  --bg:#eef2f7; --panel:#ffffff; --ink:#14233a; --muted:#57687f; --rule:#c5d2e2; --grid:#d5dfec; --line:#1b3a63; --accent:#1763d6;
+  --drive:#0e8f84; --steer:#c46a0c; --power:#9c7a00; --compute:#7c4ddb; --struct:#5c6b80; --gimbal:#1f6fd1; --payload:#cf3f3f;
+  --f-disp:'Barlow Condensed','Arial Narrow',sans-serif; --f-body:'IBM Plex Sans',system-ui,sans-serif; --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1a2e; --panel:#10233d; --ink:#e4edf8; --muted:#8fa5c2; --rule:#27436a; --grid:#1b3351; --line:#8fb6ea; --accent:#5aa2ff;
+  --drive:#3fd0c2; --steer:#f0a04b; --power:#e8cc4a; --compute:#b592f5; --struct:#98a7bd; --gimbal:#5aa2ff; --payload:#f27d7d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1a2e; --panel:#10233d; --ink:#e4edf8; --muted:#8fa5c2; --rule:#27436a; --grid:#1b3351; --line:#8fb6ea; --accent:#5aa2ff;
+  --drive:#3fd0c2; --steer:#f0a04b; --power:#e8cc4a; --compute:#b592f5; --struct:#98a7bd; --gimbal:#5aa2ff; --payload:#f27d7d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body);padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+h1{font:600 clamp(32px,6vw,52px)/1 var(--f-disp);text-transform:uppercase;letter-spacing:.03em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:6px 0 0;max-width:62ch}
+.tblock{display:grid;grid-template-columns:auto auto;border:1px solid var(--line);font:11px/1.3 var(--f-mono);min-width:0}
+.tblock div{padding:4px 10px;border-bottom:1px solid var(--rule)}
+.tblock div:nth-child(odd){color:var(--muted);border-right:1px solid var(--rule);text-transform:uppercase;letter-spacing:.06em}
+.tblock div:nth-last-child(-n+2){border-bottom:0}
+.bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.seg{display:flex;border:1px solid var(--line)}
+.seg button{background:transparent;color:var(--ink);border:0;padding:8px 14px;font:500 13px var(--f-body);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+button:focus-visible,.row:focus-visible,.tag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--rule);background:var(--panel);color:var(--ink);padding:4px 10px;font:12px var(--f-body);cursor:pointer}
+.chip i{width:10px;height:10px;background:var(--c);display:block}
+.chip[aria-pressed="false"]{opacity:.45}
+.chip[aria-pressed="false"] i{background:transparent;border:1px solid var(--c)}
+.stage{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:16px}
+@media(max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}}
+.viewer{position:relative;aspect-ratio:4/3;min-height:300px;border:1px solid var(--line);background:var(--panel);overflow:hidden;touch-action:none;cursor:grab}
+.viewer:active{cursor:grabbing}
+.viewer canvas{display:block;width:100%;height:100%}
+.tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tag{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;min-width:17px;height:17px;padding:0 3px;border-radius:9px;border:1px solid var(--c);background:var(--panel);color:var(--ink);font:500 9.5px/15px var(--f-mono);text-align:center;cursor:pointer}
+.tag.dim{opacity:.2}.tag.hl{background:var(--c);color:var(--panel);z-index:3}
+.tag.front{border:0;background:none;color:var(--accent);font:600 12px var(--f-disp);letter-spacing:.12em;pointer-events:none}
+.vtools{position:absolute;left:8px;bottom:8px;display:flex;flex-wrap:wrap;gap:4px;max-width:calc(100% - 16px)}
+.vtools button{background:var(--panel);color:var(--ink);border:1px solid var(--line);padding:4px 9px;font:11px var(--f-mono);cursor:pointer}
+.hint{position:absolute;right:8px;top:8px;font:11px var(--f-mono);color:var(--muted)}
+.legend{border:1px solid var(--line);background:var(--panel);max-height:min(72vh,660px);overflow:auto;min-width:0}
+.legend h3{margin:0;padding:8px 12px;font:600 15px var(--f-disp);letter-spacing:.08em;text-transform:uppercase;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--panel);z-index:1}
+.legend h3 i{width:10px;height:10px;background:var(--c);display:block}
+.legend h3 span{margin-left:auto;color:var(--muted);font:11px var(--f-mono)}
+.row{display:grid;grid-template-columns:26px 1fr auto;gap:8px;padding:5px 12px;align-items:baseline;border-bottom:1px solid var(--rule);cursor:pointer}
+.row:hover,.row.hl{background:color-mix(in srgb,var(--c) 16%,var(--panel))}
+.row b{font:500 11px var(--f-mono);color:var(--c)}
+.row em{font:normal 11px var(--f-mono);color:var(--muted)}
+.row small{display:inline-block;margin-left:6px;font:10px var(--f-mono);color:var(--panel);background:var(--muted);padding:0 4px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid var(--line);background:var(--panel)}
+.stat{padding:10px 14px;border-right:1px solid var(--rule);min-width:0}
+.stat span{display:block;font:11px var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat strong{font:500 22px var(--f-mono);font-variant-numeric:tabular-nums}
+.stat small{display:block;color:var(--muted);font-size:11px}
+.note{color:var(--muted);font-size:12px;max-width:100ch;margin:0}
+.views{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+figure{margin:0;border:1px solid var(--line);background:var(--panel);min-width:0}
+figcaption{padding:6px 12px;border-bottom:1px solid var(--rule);font:600 15px var(--f-disp);letter-spacing:.1em;text-transform:uppercase;display:flex;justify-content:space-between}
+figcaption span{font:11px var(--f-mono);color:var(--muted);letter-spacing:0;text-transform:none}
+figure svg{display:block;width:100%;height:auto}
+svg text{font-family:var(--f-mono);fill:var(--muted)}
+svg .p{fill:var(--c);fill-opacity:.2;stroke:var(--c);stroke-width:1.1;vector-effect:non-scaling-stroke;transition:opacity .15s}
+svg .bd{fill:var(--panel);stroke:var(--c);stroke-width:1;vector-effect:non-scaling-stroke}
+svg .bt{fill:var(--ink);font-size:6.2px;text-anchor:middle}
+svg .ld{stroke:var(--c);stroke-width:.6;vector-effect:non-scaling-stroke}
+svg .dm{stroke:var(--line);stroke-width:.7;fill:none;vector-effect:non-scaling-stroke}
+svg .ct{stroke:var(--line);stroke-width:.5;stroke-dasharray:6 2 1 2;opacity:.6;vector-effect:non-scaling-stroke}
+svg .gr{stroke:var(--line);stroke-width:1.2;vector-effect:non-scaling-stroke}
+svg.focus .pt:not(.hl){opacity:.15}
+svg .pt.hl .p{fill-opacity:.55}
+.g-drive{--c:var(--drive)}.g-steer{--c:var(--steer)}.g-power{--c:var(--power)}.g-compute{--c:var(--compute)}.g-struct{--c:var(--struct)}.g-gimbal{--c:var(--gimbal)}.g-payload{--c:var(--payload)}
+</style>
+<main class="wrap">
+<header>
+  <div>
+    <h1>Ground Dolly Blueprint</h1>
+    <p class="sub">Autonomous robotic cinematography dolly. Front Ackermann steering, rear torque-vectored drive, 2-axis gimbal on a wide two-level chassis. One parts list drives the 3D model, the four views and the schedule.</p>
+  </div>
+  <div class="tblock"><div>Project</div><div>C.A.R.L., Pinnacle, Self Driving Cars</div><div>Units</div><div>mm, g, m/s²</div><div>Wheelbase / track</div><div>260 / 208 (c/c)</div><div>Status</div><div>Rev G2, synced with CAD, weights est.</div></div>
+</header>
+<div class="bar">
+  <div class="seg" role="group" aria-label="Build stage">
+    <button id="st-d" aria-pressed="true">Bench build (MG90S kit)</button>
+    <button id="st-f" aria-pressed="false">Final build (a6700 rig)</button>
+  </div>
+  <div class="chips" id="chips" role="group" aria-label="Show or hide part groups"></div>
+  <button class="chip" id="numtog" aria-pressed="true" style="--c:var(--accent)"><i></i>Part numbers</button>
+</div>
+<section class="stage">
+  <div class="viewer" id="viewer" aria-label="Rotatable 3D model of the dolly">
+    <canvas id="cv"></canvas>
+    <div class="tags" id="tags"></div>
+    <div class="hint">drag to rotate · scroll to zoom</div>
+    <div class="vtools" id="vtools"></div>
+  </div>
+  <aside class="legend" id="legend" aria-label="Parts schedule"></aside>
+</section>
+<section class="stats" id="stats"></section>
+<p class="note">Masses and positions are estimates from the parts you have shown and typical datasheet values. Gear motors use your measured sizes: can 31.8 mm, gearbox 38.4 mm, shaft 6.6 mm, M3 holes 29.8 mm apart. Centre of gravity and rollover limit recalculate for the selected build. Rollover limit uses a = g·(w/2)/h with w = 200 mm. Rev C: 100 mm wheels (to buy), 28 mm wide and 80 g each until chosen; printed two-level chassis; anti-tip outriggers.</p>
+<section class="views" id="views"></section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ---------- parts list: x lateral, y up, z forward (mm). st: a=all, d=bench, f=final ---------- */
+const P=[];
+const box=(n,g,st,p,s,m)=>P.push({n,g,st,k:'b',p,s,m});
+const cyl=(n,g,st,p,ax,r,len,m)=>P.push({n,g,st,k:'c',p,ax,r,len,m});
+const LR=[[-1,'L'],[1,'R']];
+/* Rev B: 200 mm track, 143 mm tyres, two-level printed chassis, heavy parts on the low deck, anti-tip outriggers */
+box('Lower deck, main (printed, ribbed)','struct','a',[0,48,-57.5],[160,4,215],130);
+box('Lower deck, nose (printed, tapered)','struct','a',[0,48,100],[100,4,100],60);
+LR.forEach(([s,t])=>{
+  cyl('Front wheel '+t+' (Robocraze 100x40 mm, in cart, weight est.)','steer','a',[s*104,50,130],'x',50,40,45);
+  cyl('Rear wheel '+t+' (Robocraze 100x40 mm, in cart, weight est.)','drive','a',[s*104,50,-130],'x',50,40,45);
+  box('Steering knuckle '+t+' (printed, M3 kingpin, M6 axle)','steer','a',[s*76,73.5,125],[12,46,30],22);
+  box('Steering arm '+t+' (printed, angled for Ackermann)','steer','a',[s*74,94.5,104],[16,4,12],4);
+  cyl('Wheel hub adapter '+t+' (printed, bore 6.6+ mm)','drive','a',[s*104,50,-130],'x',12,24,15);
+  cyl('Motor shaft '+t+' (6.6 mm, measured)','drive','a',[s*98,50,-130],'x',3.3,30,6);
+  cyl('Motor bush and nut '+t,'drive','a',[s*80,50,-130],'x',7,6,8);
+  cyl('Motor gearbox '+t+' (38.4 mm, measured)','drive','a',[s*67,50,-130],'x',19.2,20,110);
+  cyl('Motor can '+t+' (31.8 mm, measured)','drive','a',[s*48,50,-130],'x',15.9,18,80);
+  box('Motor saddle '+t+' (printed cradle, bolts through deck)','drive','a',[s*57.5,61,-130],[39,21,58],22);
+  box('Motor strap, gearbox '+t+' (printed)','drive','a',[s*67,92.9,-130],[18,4.4,46],6);
+  box('Motor strap, can '+t+' (printed)','drive','a',[s*48,89.5,-130],[16,4.2,40],5);
+  box('BTS7960 driver '+t,'drive','a',[s*45,62.5,-75],[50,15,50],40);
+  box('Anti-tip outrigger '+t+' (printed, bolts under deck)','struct','a',[s*107,42,0],[74,8,24],24);
+  box('Kingpin bracket '+t+' (printed, carries knuckle)','steer','a',[s*65,48,118],[30,4,12],6);
+  cyl('Wheel hub axle bolt '+t+' (M6x65, fixed to knuckle)','steer','a',[s*102,50,130],'x',3,64,15);
+  box('Board pad BTS7960 '+t+' (printed)','compute','a',[s*45,53,-75],[50,5,50],4);
+});
+box('Tie rod (printed, bolts to arm tips)','steer','a',[0,98.5,104.1],[155.5,4,8],12);
+box('Deck splice plate (printed, 6x M3)','struct','a',[0,52,50],[80,3,20],8);
+box('25T servo horn','steer','a',[0,95,102],[8,3,14],8);
+box('MG996R steering servo (upright, shaft at x=0)','steer','a',[10.15,71.5,88],[41,43,20],55);
+box('3S 2200 mAh LiPo (low, centre)','power','a',[0,64.5,-55],[35,25,105],185);
+box('LiPo low-voltage alarm','power','a',[-35,56,10],[8,12,28],8);
+box('UBEC 6 V servo rail (5 A+ for final)','power','a',[-55,61,-20],[34,12,22],20);
+box('5 V buck, logic rail','power','a',[55,62,-20],[40,14,21],12);
+box('MPU6050 IMU (chassis)','compute','a',[32,51.5,12],[20,3,16],3);
+box('VL53L0X ToF sensor','compute','a',[0,64,155],[25,10,3],2);
+box('Board pad LiPo cradle (printed)','power','a',[0,51.5,-55.5],[36,2,105],4);
+box('Board pad UBEC (printed)','compute','a',[-55,53,-20],[34,5,22],3);
+box('Board pad 5 V buck (printed)','compute','a',[55,53,-20.5],[40,5,21],3);
+box('Styling: side skirt L (printed, flush cover)','struct','a',[-81.5,59.5,-17.5],[3,18,115],15);
+box('Styling: side skirt R (printed, flush cover)','struct','a',[81.5,59.5,-17.5],[3,18,115],15);
+box('Styling: tail panel (printed, hides motor wiring)','struct','a',[0,59.5,-166.5],[160,18,3],15);
+box('Styling: nose cover plate (printed)','struct','a',[0,103,102],[100,3,88],30);
+box('Styling: cover post (printed)','struct','a',[-47,76,61],[6,51,6],3);
+box('Styling: cover post (printed)','struct','a',[47,76,61],[6,51,6],3);
+box('Styling: cover post (printed)','struct','a',[-47,76,143],[6,51,6],3);
+box('Styling: cover post (printed)','struct','a',[47,76,143],[6,51,6],3);
+box('Front bumper (printed, sits on nose)','struct','a',[0,60.5,152],[100,21,4],20);
+[-75,75].forEach(sx=>[-95,30].forEach(z=>{
+  cyl('Aluminium standoff','struct','a',[sx,72.5,z],'y',4,45,8);
+  cyl('Silicone damper','struct','a',[sx,100,z],'y',5,10,5);
+}));
+box('Upper deck (damped platform, printed)','struct','a',[0,107,-35],[160,4,160],110);
+box('Arduino UNO Q','compute','a',[0,123,-75],[53,12,69],40);
+for(const [px,pz] of [[-24.17,-96],[24.03,-94.7],[-19.07,-43.9],[8.83,-43.9]])cyl('UNO Q post (printed, 8 mm)','compute','a',[px,113,pz],'y',3.5,8,2);
+box('Master cut-off switch','power','a',[-55,115,-105],[22,12,16],12);
+box('10 A fuse holder','power','a',[55,114,-105],[26,12,14],12);
+box('Status LED module','compute','a',[-60,111,35],[18,3,18],2);
+/* bench build: MG90S pan-tilt kit with light load */
+box('MG90S pan servo','gimbal','d',[0,120.5,15],[23,23,12],9);
+box('Pan bracket (kit)','gimbal','d',[0,134,15],[34,3,26],8);
+box('MG90S tilt servo','gimbal','d',[-16,142,15],[23,12,23],9);
+box('Tilt platform (kit)','gimbal','d',[4,152,15],[40,3,44],8);
+box('USB vision camera','payload','d',[4,169,27],[32,32,12],15);
+box('Dummy test load (about 150 g)','payload','d',[4,163.5,5],[30,20,22],150);
+box('Steering servo pillar L (printed)','steer','a',[-16.8,64,88],[12.8,27,18],6);box('Steering servo pillar foot L','steer','a',[-22.2,52.5,88],[23.6,4,36],3);box('Steering servo pillar R (printed)','steer','a',[35.85,64,88],[10.3,27,18],6);box('Steering servo pillar foot R','steer','a',[37.85,52.5,88],[14.3,4,36],3);
+/* final build: a6700 rig on MG996R pan and tilt, pan servo sunk through the upper deck */
+box('MG996R pan servo (under upper deck, ears bolted to deck)','gimbal','f',[10.15,99.5,15],[41,43,20],55);
+box('Pan plate (printed)','gimbal','f',[0,130,15],[110,3,110],60);
+LR.forEach(([s,t])=>box('Tilt upright '+t+' (printed)','gimbal','f',[s*52,152.25,18],[3,41.5,76],25));
+box('MG996R tilt servo (outside left upright)','gimbal','f',[-62.25,158,25.15],[36.5,19.7,40.7],55);
+LR.forEach(([s,t])=>box('Tilt cradle flange '+t+' (printed)','gimbal','f',[s*37.5,158,15],[3,28,36],10));
+box('Tilt pivot bush (printed)','gimbal','f',[44.75,158,15],[11.5,8,8],1);
+box('Tilt cradle plate (printed)','gimbal','f',[0,158,15],[78,3,70],25);
+cyl('Ball head, 1/4" mount','payload','f',[0,187,15],'y',20,55,180);
+box('Arca plate and bracket hardware','payload','f',[0,219.5,15],[70,10,40],150);
+box('Sony a6700 body','payload','f',[0,259,15],[122,69,64],493);
+cyl('Sony 16-50 mm lens','payload','f',[0,263,69.5],'z',33,45,300);
+box('USB vision camera (hot-shoe)','payload','f',[0,302,35],[32,12,30],15);
+box('Cold-shoe mount (printed)','payload','f',[0,295,35],[22,5,26],6);
+P.forEach(q=>{if(!/^(Front wheel|Rear wheel|Wheel hub|Motor shaft|Motor bush|Motor gearbox|Motor can)/.test(q.n))q.p[1]-=21.5});
+P.forEach((q,i)=>{q.id=i+1;const h=q.k==='b'?q.s.map(v=>v/2):[0,1,2].map(a=>'xyz'[a]===q.ax?q.len/2:q.r);q.lo=q.p.map((v,a)=>v-h[a]);q.hi=q.p.map((v,a)=>v+h[a]);});
+const GROUPS=[['drive','Drive'],['steer','Steering'],['power','Power'],['compute','Compute and sensing'],['struct','Structure'],['gimbal','Gimbal'],['payload','Payload']];
+let stage='d',numbers=true,hidden=new Set(),sel=null;
+const vis=q=>(q.st==='a'||q.st===stage)&&!hidden.has(q.g);
+const $=s=>document.querySelector(s);
+/* ---------- stats ---------- */
+function stats(){
+  const a=P.filter(q=>q.st==='a'||q.st===stage);let m=0,c=[0,0,0];
+  a.forEach(q=>{m+=q.m;q.p.forEach((v,i)=>c[i]+=v*q.m)});c=c.map(v=>v/m);
+  const acrit=9.81*0.10/(c[1]/1000),front=(c[2]+130)/260*100,v=Math.PI*0.100*500/60;
+  $('#stats').innerHTML=[
+   ['Total mass',(m/1000).toFixed(2)+' kg','est., '+a.length+' parts'],
+   ['CoG height',c[1].toFixed(0)+' mm','above ground'],
+   ['Rollover limit',acrit.toFixed(1)+' m/s²','lateral, at w = 200 mm'],
+   ['Front / rear load',front.toFixed(0)+' / '+(100-front).toFixed(0)+' %','static, from CoG z'],
+   ['Top speed',v.toFixed(2)+' m/s','500 RPM, 100 mm wheel']
+  ].map(r=>`<div class="stat"><span>${r[0]}</span><strong>${r[1]}</strong><small>${r[2]}</small></div>`).join('');
+}
+/* ---------- legend + chips ---------- */
+function legend(){
+  let h='';
+  GROUPS.forEach(([g,name])=>{
+    const L=P.filter(q=>q.g===g&&(q.st==='a'||q.st===stage));if(!L.length||hidden.has(g))return;
+    h+=`<h3 class="g-${g}"><i></i>${name}<span>${L.length}</span></h3>`;
+    L.forEach(q=>{h+=`<div class="row g-${g}" tabindex="0" data-id="${q.id}"><b>${q.id}</b><div>${q.n}${q.st!=='a'?`<small>${q.st==='d'?'bench':'final'}</small>`:''}</div><em>${q.m} g</em></div>`});
+  });
+  $('#legend').innerHTML=h;
+  $('#legend').querySelectorAll('.row').forEach(r=>{const id=+r.dataset.id;
+    r.onclick=()=>select(sel===id?null:id);r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();r.click()}};});
+}
+function chips(){
+  $('#chips').innerHTML=GROUPS.map(([g,n])=>`<button class="chip g-${g}" data-g="${g}" aria-pressed="${!hidden.has(g)}"><i></i>${n}</button>`).join('');
+  $('#chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{const g=b.dataset.g;hidden.has(g)?hidden.delete(g):hidden.add(g);refresh()});
+}
+/* ---------- 2D orthographic views ---------- */
+const VIEWS=[
+ {key:'top',title:'Top view',note:'looking down, front at top',vb:[-145,-225,290,450],X:q=>[q.lo[0],q.hi[0]],Y:q=>[-q.hi[2],-q.lo[2]],ca:'y',sort:(a,b)=>a.p[1]-b.p[1]},
+ {key:'side',title:'Right side view',note:'front to the right',vb:[-225,-325,450,350],X:q=>[q.lo[2],q.hi[2]],Y:q=>[-q.hi[1],-q.lo[1]],ca:'x',sort:(a,b)=>a.p[0]-b.p[0]},
+ {key:'front',title:'Front view',note:'looking at the bumper',vb:[-145,-325,290,350],X:q=>[q.lo[0],q.hi[0]],Y:q=>[-q.hi[1],-q.lo[1]],ca:'z',sort:(a,b)=>a.p[2]-b.p[2]},
+ {key:'rear',title:'Rear view',note:'looking at the drivetrain',vb:[-145,-325,290,350],X:q=>[-q.hi[0],-q.lo[0]],Y:q=>[-q.hi[1],-q.lo[1]],ca:'z',sort:(a,b)=>b.p[2]-a.p[2]}
+];
+const OFF=[[0,0],[12,0],[-12,0],[0,12],[0,-12],[12,12],[-12,-12],[12,-12],[-12,12],[24,0],[-24,0],[0,24],[0,-24],[24,12],[-24,-12],[24,-12],[-24,12]];
+function dimH(x1,x2,y,t){return `<path class="dm" d="M${x1} ${y}H${x2}M${x1} ${y-3}V${y+3}M${x2} ${y-3}V${y+3}"/><text x="${(x1+x2)/2}" y="${y-4}" font-size="7" text-anchor="middle">${t}</text>`}
+function dimV(x,y1,y2,t){return `<path class="dm" d="M${x} ${y1}V${y2}M${x-3} ${y1}H${x+3}M${x-3} ${y2}H${x+3}"/><text transform="translate(${x-4} ${(y1+y2)/2}) rotate(-90)" font-size="7" text-anchor="middle">${t}</text>`}
+function views(){
+  const maxH=Math.max(...P.filter(q=>q.st==='a'||q.st===stage).map(q=>q.hi[1]));
+  $('#views').innerHTML=VIEWS.map(v=>{
+    const L=P.filter(vis).sort(v.sort),placed=[];let body='',tags='';
+    const ground=v.key==='top'?'':`<line class="gr" x1="${v.vb[0]}" x2="${v.vb[0]+v.vb[2]}" y1="0" y2="0"/>`;
+    L.forEach(q=>{
+      const [x1,x2]=v.X(q),[y1,y2]=v.Y(q),cx=(x1+x2)/2,cy=(y1+y2)/2;
+      const shape=(q.k==='c'&&q.ax===v.ca)?`<circle class="p" cx="${cx}" cy="${cy}" r="${q.r}"/>`:`<rect class="p" x="${x1}" y="${y1}" width="${x2-x1}" height="${y2-y1}" rx="${q.k==='c'?Math.min(3,q.r):.8}"/>`;
+      body+=`<g class="pt g-${q.g}" data-id="${q.id}"><title>${q.id}. ${q.n}</title>${shape}</g>`;
+      let o=OFF.find(d=>placed.every(p=>Math.hypot(p[0]-(cx+d[0]),p[1]-(cy+d[1]))>11))||OFF[0];
+      placed.push([cx+o[0],cy+o[1]]);
+      if(numbers)tags+=`<g class="pt g-${q.g}" data-id="${q.id}">${o[0]||o[1]?`<line class="ld" x1="${cx}" y1="${cy}" x2="${cx+o[0]}" y2="${cy+o[1]}"/>`:''}<circle class="bd" cx="${cx+o[0]}" cy="${cy+o[1]}" r="5.2"/><text class="bt" x="${cx+o[0]}" y="${cy+o[1]+2.2}">${q.id}</text></g>`;
+    });
+    let ann='';
+    if(v.key==='top')ann=`<line class="ct" x1="-135" x2="135" y1="-130" y2="-130"/><line class="ct" x1="-135" x2="135" y1="130" y2="130"/><line class="ct" x1="0" x2="0" y1="-210" y2="210"/>`+dimV(-132,-130,130,'WHEELBASE 260')+dimH(-100,100,218,'TRACK 200')+`<text x="0" y="-212" font-size="8" text-anchor="middle">FRONT</text>`;
+    if(v.key==='side')ann=dimH(-130,130,16,'WHEELBASE 260')+dimV(214,0,-maxH,'H '+maxH.toFixed(0))+`<text x="200" y="-312" font-size="8" text-anchor="end">FRONT →</text>`;
+    if(v.key==='front'||v.key==='rear')ann=dimH(-104,104,16,'TRACK 208 (c/c)')+dimV(132,0,-maxH,'H '+maxH.toFixed(0));
+    return `<figure><figcaption>${v.title}<span>${v.note}</span></figcaption><svg viewBox="${v.vb.join(' ')}" role="img" aria-label="${v.title} with numbered parts" data-v="${v.key}">${ground}${ann}${body}${tags}</svg></figure>`;
+  }).join('');
+}
+function highlight(){
+  document.querySelectorAll('svg[data-v]').forEach(s=>{s.classList.toggle('focus',sel!=null);s.querySelectorAll('.pt').forEach(e=>e.classList.toggle('hl',+e.dataset.id===sel))});
+  document.querySelectorAll('.row').forEach(r=>r.classList.toggle('hl',+r.dataset.id===sel));
+  if(window.setHL3)window.setHL3(sel);
+}
+function select(id){sel=id;highlight()}
+/* ---------- 3D viewer (three.js, own orbit controls) ---------- */
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue('--'+n).trim();
+let R3=null;
+function init3(){
+  if(!window.THREE)return false;
+  let renderer;try{renderer=new THREE.WebGLRenderer({canvas:$('#cv'),antialias:true,alpha:true})}catch(e){return false}
+  const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(32,4/3,1,6000);
+  scene.add(new THREE.AmbientLight(0xffffff,.75));const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(300,600,400);scene.add(dl);
+  const st={az:40*Math.PI/180,el:22*Math.PI/180,r:800,ty:115,dirty:true};
+  const parts=new Map();let grid=null;
+  P.forEach(q=>{
+    const g=q.k==='b'?new THREE.BoxGeometry(...q.s):new THREE.CylinderGeometry(q.r,q.r,q.len,28);
+    if(q.k==='c'){if(q.ax==='x')g.rotateZ(Math.PI/2);if(q.ax==='z')g.rotateX(Math.PI/2)}
+    const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({transparent:true,opacity:.72,roughness:.6,metalness:.05}));
+    const e=new THREE.LineSegments(new THREE.EdgesGeometry(g,25),new THREE.LineBasicMaterial({transparent:true,opacity:.9}));
+    const grp=new THREE.Group();grp.add(m,e);grp.position.set(...q.p);scene.add(grp);parts.set(q.id,{grp,m,e,q});
+  });
+  const tagBox=$('#tags');tagBox.innerHTML='';const tags=new Map();
+  P.forEach(q=>{const b=document.createElement('button');b.className='tag g-'+q.g;b.textContent=q.id;b.title=q.n;b.onclick=()=>select(sel===q.id?null:q.id);tagBox.appendChild(b);tags.set(q.id,b)});
+  const ft=document.createElement('div');ft.className='tag front';ft.textContent='FRONT';tagBox.appendChild(ft);
+  function recolor(){
+    parts.forEach(o=>{const c=new THREE.Color(css(o.q.g));o.m.material.color.copy(c);o.e.material.color.set(css('ink'))});
+    if(grid){scene.remove(grid);grid.geometry.dispose()}
+    grid=new THREE.GridHelper(520,26,css('line'),css('grid'));scene.add(grid);st.dirty=true;
+  }
+  function place(){
+    const w=$('#viewer').clientWidth,h=$('#viewer').clientHeight;
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();st.dirty=true;
+  }
+  const v3=new THREE.Vector3();
+  function proj(p,el,show){
+    if(!show){el.style.display='none';return}
+    v3.set(...p).project(cam);
+    if(v3.z>1){el.style.display='none';return}
+    el.style.display='';el.style.left=((v3.x+1)/2*$('#viewer').clientWidth)+'px';el.style.top=((1-v3.y)/2*$('#viewer').clientHeight)+'px';
+  }
+  function frame(){
+    requestAnimationFrame(frame);
+    if(!st.dirty)return;st.dirty=false;
+    cam.position.set(Math.cos(st.el)*Math.sin(st.az)*st.r,st.ty+Math.sin(st.el)*st.r,Math.cos(st.el)*Math.cos(st.az)*st.r);
+    cam.lookAt(0,st.ty,0);cam.updateMatrixWorld();
+    parts.forEach(o=>{o.grp.visible=vis(o.q)});
+    renderer.render(scene,cam);
+    parts.forEach((o,id)=>proj(o.q.p,tags.get(id),numbers&&vis(o.q)));
+    proj([0,0,200],ft,true);
+  }
+  const ro=new ResizeObserver(place);ro.observe($('#viewer'));
+  /* orbit: one pointer rotates, two pointers pinch-zoom, wheel zooms */
+  const vw=$('#viewer'),ptr=new Map();let pd=0;
+  vw.addEventListener('pointerdown',e=>{if(e.target.closest('.tag,.vtools'))return;vw.setPointerCapture(e.pointerId);ptr.set(e.pointerId,[e.clientX,e.clientY]);pd=0});
+  vw.addEventListener('pointermove',e=>{
+    if(!ptr.has(e.pointerId))return;const o=ptr.get(e.pointerId);
+    if(ptr.size===1){st.az-=(e.clientX-o[0])*.008;st.el=Math.max(-.1,Math.min(1.55,st.el+(e.clientY-o[1])*.008))}
+    ptr.set(e.pointerId,[e.clientX,e.clientY]);
+    if(ptr.size===2){const [a,b]=[...ptr.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd)st.r=Math.max(250,Math.min(1800,st.r*pd/d));pd=d}
+    st.dirty=true;
+  });
+  const up=e=>{ptr.delete(e.pointerId);pd=0};vw.addEventListener('pointerup',up);vw.addEventListener('pointercancel',up);
+  vw.addEventListener('wheel',e=>{e.preventDefault();st.r=Math.max(250,Math.min(1800,st.r*Math.exp(e.deltaY*.001)));st.dirty=true},{passive:false});
+  const set=(az,el)=>{st.az=az*Math.PI/180;st.el=el*Math.PI/180;st.dirty=true};
+  const tools=[['Iso',()=>set(40,22)],['Top',()=>set(0,89)],['Front',()=>set(0,0)],['Side',()=>set(90,0)],['Rear',()=>set(180,0)],['+',()=>{st.r=Math.max(250,st.r*.85);st.dirty=true}],['−',()=>{st.r=Math.min(1800,st.r/.85);st.dirty=true}]];
+  $('#vtools').innerHTML='';tools.forEach(([n,f])=>{const b=document.createElement('button');b.textContent=n;b.onclick=f;b.setAttribute('aria-label',n==='+'?'Zoom in':n==='−'?'Zoom out':n+' view');$('#vtools').appendChild(b)});
+  window.setHL3=id=>{
+    parts.forEach(o=>{const on=id==null||o.q.id===id;o.m.material.opacity=id==null?.72:on?.95:.1;o.e.material.opacity=on?.9:.12;
+      const t=tags.get(o.q.id);t.classList.toggle('hl',o.q.id===id);t.classList.toggle('dim',!on)});st.dirty=true};
+  R3={st,recolor,place};recolor();place();frame();return true;
+}
+/* ---------- wiring ---------- */
+function refresh(){
+  chips();legend();stats();views();highlight();
+  if(R3){R3.st.ty=stage==='f'?150:115;R3.st.r=stage==='f'?900:800;R3.st.dirty=true}
+}
+function setStage(s){stage=s;sel=null;$('#st-d').setAttribute('aria-pressed',s==='d');$('#st-f').setAttribute('aria-pressed',s==='f');refresh()}
+$('#st-d').onclick=()=>setStage('d');$('#st-f').onclick=()=>setStage('f');
+$('#numtog').onclick=e=>{numbers=!numbers;e.currentTarget.setAttribute('aria-pressed',numbers);views();highlight();if(R3)R3.st.dirty=true};
+if(!init3()){$('#viewer').innerHTML='<p style="padding:24px;color:var(--muted)">The 3D view needs WebGL. The four views and the schedule below show the same parts.</p>'}
+refresh();
+const rc=()=>R3&&R3.recolor();
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',rc)}catch(e){}
+new MutationObserver(rc).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>
