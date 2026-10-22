@@ -152,9 +152,12 @@ for name, sx in (("L", -1), ("R", 1)):
     parts["10_front_wheel_bush_" + name] = (bush, lambda s, sx=sx: s.translate((-sx * 104, -AXLE_Y, 0)).rotate((0, 0, 0), (0, 1, 0), 90), "Free-spinning bush on the fixed M6 axle bolt. Glue into reamed wheel bore.")
 
 tipR = ack_tip(1)
-tie = box(-tipR[0] - 6, tipR[0] + 6, tipR[1] - 4, tipR[1] + 4, 75, 79)
-tie = hole_z(tie, [(-tipR[0], tipR[1]), (tipR[0], tipR[1]), (0, tipR[1])], M3_CLR, 74, 80)
-parts["11_tie_rod"] = (tie, lambda s: s.translate((0, -tipR[1], -75)), "Centre hole takes the servo-horn pin; ends bolt to knuckle arms.")
+# Rev G3: the servo-horn pin sits in a SLOT (long in Y), because the horn pin moves on a circle while the
+# 4-bar tie rod moves on a slightly different path (up to 1.8 mm apart at full lock) - a round hole would bind.
+tie = box(-tipR[0] - 6, tipR[0] + 6, tipR[1] - 6, tipR[1] + 6, 75, 79)
+tie = hole_z(tie, [(-tipR[0], tipR[1]), (tipR[0], tipR[1])], M3_CLR, 74, 80)
+tie = tie.cut(box(-M3_CLR / 2, M3_CLR / 2, tipR[1] - 3.7, tipR[1] + 3.7, 74, 80))   # slot 3.4 x 7.4 mm
+parts["11_tie_rod"] = (tie, lambda s: s.translate((0, -tipR[1], -75)), "Centre SLOT (long in Y) takes the servo-horn pin so the linkage cannot bind; ends bolt to knuckle arms (M3, loose).")
 
 # ---- Side skirts with embossed name ---------------------------------------
 for name, sx in (("L", -1), ("R", 1)):
