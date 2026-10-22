@@ -98,7 +98,8 @@ for name, sx in (("L", -1), ("R", 1)):
 # ---- Motor saddle (lower cradle) and two straps per side -------------------
 for name, sx in (("L", -1), ("R", 1)):
     xa, xb = sorted((sx * 38, sx * 77))
-    blk = box(xa, xb, REAR_Y - 29, REAR_Y + 29, 29, 50)
+    CLAMP_GAP = 0.6   # Rev G3: saddle top sits 0.6 mm below the motor centre line, so tightening the strap bolts really clamps the motor
+    blk = box(xa, xb, REAR_Y - 29, REAR_Y + 29, 29, 50 - CLAMP_GAP)
     can_x0, can_x1 = sorted((sx * 39, sx * 57))
     gb_x0, gb_x1 = sorted((sx * 57, sx * 77))
     blk = blk.cut(cyl("X", 15.9 + FIT / 2, abs(can_x1 - can_x0), ((can_x0 + can_x1) / 2, REAR_Y, 50)))
@@ -106,7 +107,7 @@ for name, sx in (("L", -1), ("R", 1)):
     blk = blk.cut(cyl("X", 19.3 + FIT / 2, 2, (sx * 57, REAR_Y, 50)))     # blend step
     pts = [(sx * x, REAR_Y + sy * 25.7) for x in (48, 67) for sy in (-1, 1)]
     blk = hole_z(blk, pts, M3_CLR, 28, 51)
-    parts["06_motor_saddle_" + name] = (blk, lambda s: s.translate((0, 0, -29)), "Cradle for 31.8 mm can + 38.4 mm gearbox. Bolts through deck.")
+    parts["06_motor_saddle_" + name] = (blk, lambda s: s.translate((0, 0, -29)), "Cradle for 31.8 mm can + 38.4 mm gearbox. Bolts through deck. 0.6 mm clamp gap to the strap: tighten the strap bolts until snug (the strap squeezes the motor).")
     for nm, (x0, x1, r, cx) in {"can": (39, 57, 15.9, 48), "gearbox": (58, 76, 19.2, 67)}.items():
         xs = sorted((sx * x0 if nm == "gearbox" else sx * 40, sx * x1 if nm == "gearbox" else sx * 56))
         ro = r + FIT / 2 + 4
